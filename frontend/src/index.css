@@ -22,7 +22,7 @@ button {
 }
 
 input {
-  @apply p-2 rounded bg-gray-800 border border-gray-700 text-white w-full;
+  @apply p-2 rounded bg-gray-800 border border-gray-700 text-gray-100 w-full;
 }
 
 h1,
