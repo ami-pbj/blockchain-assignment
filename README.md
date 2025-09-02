@@ -11,3 +11,9 @@ REPORT_GAS=true npx hardhat test
 npx hardhat node
 npx hardhat ignition deploy ./ignition/modules/Lock.js
 ```
+
+### To copy MarketplaceABI from artifacts to frontend
+
+```shell
+node scripts/copy-abi.js
+```
