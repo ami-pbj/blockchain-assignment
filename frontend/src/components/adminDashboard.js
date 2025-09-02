@@ -39,7 +39,6 @@ export default function AdminDashboard({ contract, signer }) {
       for (let i = 0; i < serviceCount; i++) {
         const service = await contract.getService(i);
         if (service.state === 5) {
-          // Disputed state
           disputed.push(service);
         }
       }
@@ -57,7 +56,6 @@ export default function AdminDashboard({ contract, signer }) {
   };
 
   const assignRole = async () => {
-    // Validate address
     if (!isValidEthereumAddress(userAddress)) {
       toast.error("Please enter a valid Ethereum address (0x...)");
       return;
@@ -65,26 +63,21 @@ export default function AdminDashboard({ contract, signer }) {
 
     setIsAssigning(true);
     try {
-      const tx = await contract
-        .connect(signer)
-        .setRole(userAddress, selectedRole);
+      const tx = await contract.setRole(userAddress, selectedRole);
       await tx.wait();
       toast.success("Role assigned successfully!");
       setUserAddress("");
-
-      // Reload to see changes
       loadAllServices();
       loadDisputedServices();
     } catch (err) {
       console.error("Error assigning role:", err);
 
-      // Better error messages
-      if (err.message.includes("Unauthorized")) {
+      if (err.data && err.data.includes("0x118cdaa7")) {
+        toast.error("Only the contract owner can assign roles");
+      } else if (err.message.includes("Unauthorized")) {
         toast.error("Only admin can assign roles");
-      } else if (err.message.includes("revert")) {
-        toast.error("Transaction failed. Check console for details.");
       } else {
-        toast.error(err.message);
+        toast.error("Transaction failed: " + err.message);
       }
     } finally {
       setIsAssigning(false);
@@ -93,9 +86,7 @@ export default function AdminDashboard({ contract, signer }) {
 
   const resolveDispute = async (serviceId, approve) => {
     try {
-      const tx = await contract
-        .connect(signer)
-        .resolveDispute(serviceId, approve);
+      const tx = await contract.resolveDispute(serviceId, approve);
       await tx.wait();
       toast.success(`Dispute ${approve ? "approved" : "rejected"}!`);
       loadDisputedServices();
@@ -150,7 +141,6 @@ export default function AdminDashboard({ contract, signer }) {
           {isAssigning ? "Assigning..." : "Assign Role"}
         </button>
 
-        {/* Sample addresses for testing */}
         <div className="mt-3 text-sm text-gray-400">
           <p>Sample addresses from Hardhat:</p>
           <p>0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 (Admin)</p>

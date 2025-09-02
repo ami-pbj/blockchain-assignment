@@ -25,8 +25,19 @@ contract Marketplace is Ownable {
         string description;
     }
 
+    struct Application {
+        address provider;
+        uint256 serviceId;
+        string proposal;
+        bool accepted;
+    }
+
+    
     uint256 public nextServiceId;
     mapping(uint256 => Service) public services;
+
+    mapping(uint256 => Application[]) public applications;
+    mapping(address => uint256[]) public providerApplications;
 
     // events
     event ServiceCreated(uint256 indexed serviceId, address indexed client, string description);
@@ -36,6 +47,9 @@ contract Marketplace is Ownable {
     event ServiceApproved(uint256 indexed serviceId);
     event ServiceDisputed(uint256 indexed serviceId);
     event ServiceResolved(uint256 indexed serviceId, address resolver, bool approved);
+
+    event ApplicationCreated(uint256 indexed serviceId, address indexed provider, string proposal);
+    event ApplicationAccepted(uint256 indexed serviceId, address indexed provider);
 
     // modifiers
     modifier onlyRole(Role _role) {
@@ -117,6 +131,58 @@ contract Marketplace is Ownable {
         }
 
         emit ServiceResolved(_serviceId, msg.sender, _approve);
+    }
+
+    // Providers apply for services
+    function applyForService(uint256 _serviceId, string memory _proposal) 
+        external 
+        onlyRole(Role.Provider) 
+        inState(_serviceId, ServiceState.Funded) 
+    {
+        applications[_serviceId].push(Application({
+            provider: msg.sender,
+            serviceId: _serviceId,
+            proposal: _proposal,
+            accepted: false
+        }));
+        
+        providerApplications[msg.sender].push(_serviceId);
+        emit ApplicationCreated(_serviceId, msg.sender, _proposal);
+    }
+
+    // Client accepts an application
+    function acceptApplication(uint256 _serviceId, uint256 _applicationIndex) 
+        external 
+        onlyRole(Role.Client) 
+        inState(_serviceId, ServiceState.Funded) 
+    {
+        require(services[_serviceId].client == msg.sender, "Not the service client");
+        require(_applicationIndex < applications[_serviceId].length, "Invalid application");
+        
+        Application storage application = applications[_serviceId][_applicationIndex];
+        require(!application.accepted, "Application already accepted");
+        require(roles[application.provider] == Role.Provider, "Applicant is not a provider");
+        
+        application.accepted = true;
+        services[_serviceId].provider = application.provider;
+        services[_serviceId].state = ServiceState.Assigned;
+        
+        emit ApplicationAccepted(_serviceId, application.provider);
+        emit ProviderAssigned(_serviceId, application.provider);
+    }
+
+    // View functions for applications
+    function getApplicationCount(uint256 _serviceId) external view returns (uint256) {
+        return applications[_serviceId].length;
+    }
+
+    function getApplication(uint256 _serviceId, uint256 _index) external view returns (Application memory) {
+        require(_index < applications[_serviceId].length, "Invalid application index");
+        return applications[_serviceId][_index];
+    }
+
+    function getProviderApplications(address _provider) external view returns (uint256[] memory) {
+        return providerApplications[_provider];
     }
 
     // helper functions

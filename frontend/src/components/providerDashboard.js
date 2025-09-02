@@ -5,52 +5,86 @@ import { toast } from "react-toastify";
 export default function ProviderDashboard({ contract, signer }) {
   const [services, setServices] = useState([]);
   const [applications, setApplications] = useState({});
-  const [proposalText, setProposalText] = useState("");
+  const [proposalTexts, setProposalTexts] = useState({}); // Object to store proposals for each service
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     loadServices();
   }, [contract]);
 
   const loadServices = async () => {
+    setLoading(true);
     try {
       const serviceCount = await contract.nextServiceId();
       const servicesArray = [];
+      const applicationsData = {};
 
       for (let i = 0; i < serviceCount; i++) {
-        const service = await contract.getService(i);
-        servicesArray.push(service);
+        try {
+          const service = await contract.getService(i);
+          servicesArray.push(service);
 
-        // Load applications for each service
-        if (service.state === 1) {
-          // Funded services only
-          try {
-            const appCount = await contract.getApplicationCount(i);
-            const serviceApplications = [];
-            for (let j = 0; j < appCount; j++) {
-              const application = await contract.getApplication(i, j);
-              serviceApplications.push(application);
+          // Load applications for funded services only
+          if (service.state === 1) {
+            try {
+              // Check if application functions exist
+              applicationsData[i] = [];
+
+              // Try to load applications if the function exists
+              try {
+                const appCount = await contract.getApplicationCount(i);
+                for (let j = 0; j < appCount; j++) {
+                  const application = await contract.getApplication(i, j);
+                  applicationsData[i].push(application);
+                }
+              } catch (error) {
+                console.log("Application functions not available yet");
+                applicationsData[i] = [];
+              }
+            } catch (error) {
+              console.log("Error loading applications for service", i);
+              applicationsData[i] = [];
             }
-            setApplications((prev) => ({ ...prev, [i]: serviceApplications }));
-          } catch (error) {
-            console.log("No applications function or no applications");
           }
+        } catch (error) {
+          console.log("Error loading service", i);
         }
       }
 
       setServices(servicesArray);
+      setApplications(applicationsData);
     } catch (err) {
       console.error("Error loading services:", err);
+      toast.error("Failed to load services");
+    } finally {
+      setLoading(false);
     }
   };
 
   const applyForService = async (serviceId, proposal) => {
+    if (!proposal.trim()) {
+      toast.error("Please enter a proposal");
+      return;
+    }
+
     try {
       const tx = await contract.applyForService(serviceId, proposal);
       await tx.wait();
       toast.success("Application submitted!");
+
+      // Clear the proposal text for this service
+      setProposalTexts((prev) => ({ ...prev, [serviceId]: "" }));
+
       loadServices();
     } catch (err) {
-      toast.error(err.message);
+      console.error("Error applying for service:", err);
+      if (err.message.includes("Unauthorized role")) {
+        toast.error("Only providers can apply for services");
+      } else if (err.message.includes("Invalid state")) {
+        toast.error("Service is not available for applications");
+      } else {
+        toast.error(err.message);
+      }
     }
   };
 
@@ -61,8 +95,13 @@ export default function ProviderDashboard({ contract, signer }) {
       toast.success("Service delivered!");
       loadServices();
     } catch (err) {
+      console.error("Error delivering service:", err);
       toast.error(err.message);
     }
+  };
+
+  const handleProposalChange = (serviceId, text) => {
+    setProposalTexts((prev) => ({ ...prev, [serviceId]: text }));
   };
 
   const getStateName = (state) => {
@@ -77,6 +116,15 @@ export default function ProviderDashboard({ contract, signer }) {
     ];
     return states[state] || "Unknown";
   };
+
+  if (loading) {
+    return (
+      <div className="bg-gray-800 p-4 rounded shadow-md">
+        <h2 className="text-xl font-bold">Provider Dashboard</h2>
+        <p>Loading services...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-gray-800 p-4 rounded shadow-md space-y-4">
@@ -109,12 +157,19 @@ export default function ProviderDashboard({ contract, signer }) {
                   <input
                     type="text"
                     placeholder="Your proposal..."
-                    value={proposalText}
-                    onChange={(e) => setProposalText(e.target.value)}
+                    value={proposalTexts[service.id] || ""}
+                    onChange={(e) =>
+                      handleProposalChange(service.id, e.target.value)
+                    }
                     className="w-full p-2 mb-2 text-black"
                   />
                   <button
-                    onClick={() => applyForService(service.id, proposalText)}
+                    onClick={() =>
+                      applyForService(
+                        service.id,
+                        proposalTexts[service.id] || ""
+                      )
+                    }
                     className="bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-2 rounded"
                   >
                     Apply for this Service

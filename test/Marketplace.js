@@ -62,4 +62,47 @@ describe("Marketplace", function () {
       "ServiceApproved"
     );
   });
+
+  it("should allow providers to apply for services", async function () {
+    await marketplace
+      .connect(client)
+      .createService("Logo Design", parseEther("1"));
+    await marketplace
+      .connect(client)
+      .fundService(0, { value: parseEther("1") });
+
+    await expect(
+      marketplace.connect(provider).applyForService(0, "I can design your logo")
+    ).to.emit(marketplace, "ApplicationCreated");
+  });
+
+  it("should allow clients to accept applications", async function () {
+    await marketplace
+      .connect(client)
+      .createService("Logo Design", parseEther("1"));
+    await marketplace
+      .connect(client)
+      .fundService(0, { value: parseEther("1") });
+    await marketplace
+      .connect(provider)
+      .applyForService(0, "I can design your logo");
+
+    await expect(marketplace.connect(client).acceptApplication(0, 0)).to.emit(
+      marketplace,
+      "ApplicationAccepted"
+    );
+  });
+
+  it("should prevent non-providers from applying", async function () {
+    await marketplace
+      .connect(client)
+      .createService("Logo Design", parseEther("1"));
+    await marketplace
+      .connect(client)
+      .fundService(0, { value: parseEther("1") });
+
+    await expect(
+      marketplace.connect(client).applyForService(0, "I want to apply")
+    ).to.be.revertedWith("Unauthorized role");
+  });
 });
