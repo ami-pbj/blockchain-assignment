@@ -10,8 +10,10 @@ export default function ClientDashboard({ contract, signer }) {
   const [loadingApplications, setLoadingApplications] = useState({});
 
   useEffect(() => {
-    loadServices();
-  }, [contract]);
+    if (contract && signer) {
+      loadServices();
+    }
+  }, [contract, signer]);
 
   const loadServices = async () => {
     try {
@@ -22,9 +24,8 @@ export default function ClientDashboard({ contract, signer }) {
         const service = await contract.getService(i);
         servicesArray.push(service);
 
-        // Load applications for each service
+        // Load applications for each service that belongs to this client and is in Created state (state 0)
         if (service.state === 0 && service.client === signer.address) {
-          // Created state
           loadApplicationsForService(i);
         }
       }
@@ -32,29 +33,48 @@ export default function ClientDashboard({ contract, signer }) {
       setServices(servicesArray);
     } catch (err) {
       console.error("Error loading services:", err);
+      toast.error("Failed to load services");
     }
   };
 
   const loadApplicationsForService = async (serviceId) => {
     try {
       setLoadingApplications((prev) => ({ ...prev, [serviceId]: true }));
+
+      // Get application count for this service
       const applicationCount = await contract.getApplicationCount(serviceId);
       const apps = [];
 
+      // Load each application
       for (let i = 0; i < applicationCount; i++) {
-        const application = await contract.getApplication(serviceId, i);
-        apps.push(application);
+        try {
+          const application = await contract.getApplication(serviceId, i);
+          apps.push(application);
+        } catch (error) {
+          console.error(
+            `Error loading application ${i} for service ${serviceId}:`,
+            error
+          );
+        }
       }
 
       setApplications((prev) => ({ ...prev, [serviceId]: apps }));
     } catch (err) {
-      console.error("Error loading applications:", err);
+      console.error(
+        `Error loading applications for service ${serviceId}:`,
+        err
+      );
     } finally {
       setLoadingApplications((prev) => ({ ...prev, [serviceId]: false }));
     }
   };
 
   const createService = async () => {
+    if (!description.trim() || !price.trim()) {
+      toast.error("Please enter description and price");
+      return;
+    }
+
     try {
       const tx = await contract.createService(
         description,
@@ -66,7 +86,8 @@ export default function ClientDashboard({ contract, signer }) {
       setPrice("");
       loadServices();
     } catch (err) {
-      toast.error(err.message);
+      console.error("Error creating service:", err);
+      toast.error(err.reason || err.message);
     }
   };
 
@@ -75,9 +96,10 @@ export default function ClientDashboard({ contract, signer }) {
       const tx = await contract.acceptApplication(serviceId, applicationIndex);
       await tx.wait();
       toast.success("Application accepted!");
-      loadServices();
+      loadServices(); // Reload to see state change
     } catch (err) {
-      toast.error(err.message);
+      console.error("Error accepting application:", err);
+      toast.error(err.reason || err.message);
     }
   };
 
@@ -90,7 +112,8 @@ export default function ClientDashboard({ contract, signer }) {
       toast.success("Service funded!");
       loadServices();
     } catch (err) {
-      toast.error(err.message);
+      console.error("Error funding service:", err);
+      toast.error(err.reason || err.message);
     }
   };
 
@@ -101,7 +124,8 @@ export default function ClientDashboard({ contract, signer }) {
       toast.success("Service approved!");
       loadServices();
     } catch (err) {
-      toast.error(err.message);
+      console.error("Error approving service:", err);
+      toast.error(err.reason || err.message);
     }
   };
 
@@ -112,19 +136,20 @@ export default function ClientDashboard({ contract, signer }) {
       toast.success("Service disputed!");
       loadServices();
     } catch (err) {
-      toast.error(err.message);
+      console.error("Error disputing service:", err);
+      toast.error(err.reason || err.message);
     }
   };
 
   const getStateName = (state) => {
     const states = [
-      "Created",
-      "Funded",
-      "Assigned",
-      "Delivered",
-      "Approved",
-      "Disputed",
-      "Resolved",
+      "Created", // 0
+      "Funded", // 1
+      "Assigned", // 2
+      "Delivered", // 3
+      "Approved", // 4
+      "Disputed", // 5
+      "Resolved", // 6
     ];
     return states[Number(state)] || "Unknown";
   };
@@ -141,14 +166,14 @@ export default function ClientDashboard({ contract, signer }) {
           placeholder="Service description"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          className="w-full p-2 mb-2 text-white outline-none"
+          className="w-full p-2 mb-2 bg-gray-700 text-white rounded outline-none"
         />
         <input
           type="text"
           placeholder="Price in ETH"
           value={price}
           onChange={(e) => setPrice(e.target.value)}
-          className="w-full p-2 mb-2 text-white outline-none"
+          className="w-full p-2 mb-2 bg-gray-700 text-white rounded outline-none"
         />
         <button
           onClick={createService}
@@ -161,12 +186,12 @@ export default function ClientDashboard({ contract, signer }) {
       {/* My Services Section */}
       <div className="border border-gray-600 p-3 rounded-lg">
         <h3 className="font-bold mb-2">My Services</h3>
-        {services.filter((service) => service.client === signer.address)
+        {services.filter((service) => service.client === signer?.address)
           .length === 0 ? (
           <p>No services created</p>
         ) : (
           services
-            .filter((service) => service.client === signer.address)
+            .filter((service) => service.client === signer?.address)
             .map((service) => (
               <div
                 key={service.id.toString()}
@@ -188,7 +213,7 @@ export default function ClientDashboard({ contract, signer }) {
                   {service.provider || "Not assigned"}
                 </p>
 
-                {/* Applications for Created services */}
+                {/* Applications for Created services (state 0) */}
                 {service.state === 0 && (
                   <div className="mt-2">
                     <h4 className="font-bold">Applications:</h4>
@@ -218,17 +243,17 @@ export default function ClientDashboard({ contract, signer }) {
                   </div>
                 )}
 
-                {/* Fund button for Assigned services */}
+                {/* Fund button for Assigned services (state 2) */}
                 {service.state === 2 && (
                   <button
                     onClick={() => fundService(service.id, service.price)}
                     className="bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-2 rounded mt-2"
                   >
-                    Fund Service
+                    Fund Service ({ethers.formatEther(service.price)} ETH)
                   </button>
                 )}
 
-                {/* Approve/Dispute buttons for Delivered services */}
+                {/* Approve/Dispute buttons for Delivered services (state 3) */}
                 {service.state === 3 && (
                   <div className="flex space-x-2 mt-2">
                     <button

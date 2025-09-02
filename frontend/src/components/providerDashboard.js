@@ -157,7 +157,10 @@ export default function ProviderDashboard({ contract, signer }) {
           <p>No available services. Services need to be created by clients.</p>
         ) : (
           services.map((service) => (
-            <div key={service.id.toString()} className="border p-2 mb-2">
+            <div
+              key={service.id.toString()}
+              className="border border-gray-700 rounded p-2 mb-2"
+            >
               <p>
                 <strong>ID:</strong> {service.id.toString()} -{" "}
                 {service.description}
@@ -177,7 +180,7 @@ export default function ProviderDashboard({ contract, signer }) {
                   onChange={(e) =>
                     handleProposalChange(service.id, e.target.value)
                   }
-                  className="w-full p-2 mb-2 text-white bg-gray-700 rounded"
+                  className="w-full p-2 mb-2 text-white bg-gray-700 rounded outline-none"
                   rows="3"
                 />
                 <button
@@ -201,7 +204,10 @@ export default function ProviderDashboard({ contract, signer }) {
           <p>No applications submitted yet</p>
         ) : (
           myApplications.map((app, index) => (
-            <div key={index} className="border p-2 mb-2">
+            <div
+              key={index}
+              className="border border-gray-700 rounded p-2 mb-2"
+            >
               <p>
                 <strong>Service ID:</strong> {app.serviceId.toString()} -{" "}
                 {app.service.description}
@@ -228,7 +234,10 @@ export default function ProviderDashboard({ contract, signer }) {
           <p>No assigned services</p>
         ) : (
           myAssignedServices.map((service) => (
-            <div key={service.id.toString()} className="border p-2 mb-2">
+            <div
+              key={service.id.toString()}
+              className="border border-gray-700 rounded p-2 mb-2"
+            >
               <p>
                 <strong>ID:</strong> {service.id.toString()} -{" "}
                 {service.description}
@@ -243,7 +252,7 @@ export default function ProviderDashboard({ contract, signer }) {
                 <strong>Client:</strong> {service.client}
               </p>
 
-              {service.state === 1 && ( // Funded state
+              {service.state === 1 && (
                 <button
                   onClick={() => deliverService(service.id)}
                   className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded mt-2"
