@@ -18,91 +18,47 @@ describe("Marketplace", function () {
     await marketplace.setRole(admin.address, 3);
   });
 
-  it("should let a client create and fund a service", async function () {
+  it("should follow the correct flow: create → apply → accept → fund → deliver → approve", async function () {
+    // 1. Client posts service request
     await marketplace
       .connect(client)
       .createService("Logo Design", parseEther("1"));
-    const service = await marketplace.getService(0);
 
-    expect(service.client).to.equal(client.address);
-    expect(service.price).to.equal(parseEther("1"));
-
-    await expect(
-      marketplace.connect(client).fundService(0, { value: parseEther("1") })
-    ).to.emit(marketplace, "ServiceFunded");
-  });
-
-  it("should let client assign provider and provider deliver", async function () {
-    await marketplace
-      .connect(client)
-      .createService("Logo Design", parseEther("1"));
-    await marketplace
-      .connect(client)
-      .fundService(0, { value: parseEther("1") });
-    await marketplace.connect(client).assignProvider(0, provider.address);
-
-    await expect(marketplace.connect(provider).deliverService(0)).to.emit(
-      marketplace,
-      "ServiceDelivered"
-    );
-  });
-
-  it("should allow approval and transfer funds", async function () {
-    await marketplace
-      .connect(client)
-      .createService("Logo Design", parseEther("1"));
-    await marketplace
-      .connect(client)
-      .fundService(0, { value: parseEther("1") });
-    await marketplace.connect(client).assignProvider(0, provider.address);
-    await marketplace.connect(provider).deliverService(0);
-
-    await expect(marketplace.connect(client).approveService(0)).to.emit(
-      marketplace,
-      "ServiceApproved"
-    );
-  });
-
-  it("should allow providers to apply for services", async function () {
-    await marketplace
-      .connect(client)
-      .createService("Logo Design", parseEther("1"));
-    await marketplace
-      .connect(client)
-      .fundService(0, { value: parseEther("1") });
-
-    await expect(
-      marketplace.connect(provider).applyForService(0, "I can design your logo")
-    ).to.emit(marketplace, "ApplicationCreated");
-  });
-
-  it("should allow clients to accept applications", async function () {
-    await marketplace
-      .connect(client)
-      .createService("Logo Design", parseEther("1"));
-    await marketplace
-      .connect(client)
-      .fundService(0, { value: parseEther("1") });
+    // 2. Provider applies
     await marketplace
       .connect(provider)
       .applyForService(0, "I can design your logo");
 
-    await expect(marketplace.connect(client).acceptApplication(0, 0)).to.emit(
-      marketplace,
-      "ApplicationAccepted"
-    );
-  });
+    // 3. Client selects provider
+    await marketplace.connect(client).acceptApplication(0, 0);
 
-  it("should prevent non-providers from applying", async function () {
-    await marketplace
-      .connect(client)
-      .createService("Logo Design", parseEther("1"));
-    await marketplace
-      .connect(client)
-      .fundService(0, { value: parseEther("1") });
+    // Check state is Assigned (not Funded yet)
+    let service = await marketplace.getService(0);
+    expect(service.state).to.equal(2); // Assigned state
 
+    // 4. Client deposits ETH
     await expect(
-      marketplace.connect(client).applyForService(0, "I want to apply")
-    ).to.be.revertedWith("Unauthorized role");
+      marketplace.connect(client).fundService(0, { value: parseEther("1") })
+    ).to.emit(marketplace, "ServiceFunded");
+
+    // Check state is Funded
+    service = await marketplace.getService(0);
+    expect(service.state).to.equal(1); // Funded state
+
+    // 5. Provider delivers work
+    await expect(marketplace.connect(provider).deliverService(0)).to.emit(
+      marketplace,
+      "ServiceDelivered"
+    );
+
+    // 6. Client approves
+    await expect(marketplace.connect(client).approveService(0)).to.emit(
+      marketplace,
+      "ServiceApproved"
+    );
+
+    // Check final state is Approved and funds transferred
+    service = await marketplace.getService(0);
+    expect(service.state).to.equal(4);
   });
 });

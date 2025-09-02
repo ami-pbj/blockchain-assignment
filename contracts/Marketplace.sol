@@ -82,22 +82,57 @@ contract Marketplace is Ownable {
         nextServiceId++;
     }
 
-    function fundService(uint256 _serviceId) external payable onlyRole(Role.Client) inState(_serviceId, ServiceState.Created) {
+    function applyForService(uint256 _serviceId, string memory _proposal) 
+        external 
+        onlyRole(Role.Provider) 
+        inState(_serviceId, ServiceState.Created)  // Changed from Funded to Created
+    {
+        applications[_serviceId].push(Application({
+            provider: msg.sender,
+            serviceId: _serviceId,
+            proposal: _proposal,
+            accepted: false
+        }));
+        
+        providerApplications[msg.sender].push(_serviceId);
+        emit ApplicationCreated(_serviceId, msg.sender, _proposal);
+    }
+
+    function acceptApplication(uint256 _serviceId, uint256 _applicationIndex) 
+        external 
+        onlyRole(Role.Client) 
+        inState(_serviceId, ServiceState.Created)  // Changed from Funded to Created
+    {
+        require(services[_serviceId].client == msg.sender, "Not the service client");
+        require(_applicationIndex < applications[_serviceId].length, "Invalid application");
+        
+        Application storage application = applications[_serviceId][_applicationIndex];
+        require(!application.accepted, "Application already accepted");
+        require(roles[application.provider] == Role.Provider, "Applicant is not a provider");
+        
+        application.accepted = true;
+        services[_serviceId].provider = application.provider;
+        services[_serviceId].state = ServiceState.Assigned;  // Now in Assigned state
+        
+        emit ApplicationAccepted(_serviceId, application.provider);
+        emit ProviderAssigned(_serviceId, application.provider);
+    }
+
+    function fundService(uint256 _serviceId) external payable 
+        onlyRole(Role.Client) 
+        inState(_serviceId, ServiceState.Assigned)
+    {
         require(msg.value == services[_serviceId].price, "Incorrect ETH amount");
+        require(services[_serviceId].client == msg.sender, "Not the service client");
         services[_serviceId].state = ServiceState.Funded;
 
         emit ServiceFunded(_serviceId, msg.value);
     }
 
-    function assignProvider(uint256 _serviceId, address _provider) external onlyRole(Role.Client) inState(_serviceId, ServiceState.Funded) {
-        require(roles[_provider] == Role.Provider, "Assigned address is not a provider");
-        services[_serviceId].provider = _provider;
-        services[_serviceId].state = ServiceState.Assigned;
-
-        emit ProviderAssigned(_serviceId, _provider);
-    }
-
-    function deliverService(uint256 _serviceId) external onlyRole(Role.Provider) inState(_serviceId, ServiceState.Assigned) {
+    function deliverService(uint256 _serviceId) external 
+        onlyRole(Role.Provider) 
+        inState(_serviceId, ServiceState.Funded)
+    {
         require(services[_serviceId].provider == msg.sender, "You are not assigned to this service");
         services[_serviceId].state = ServiceState.Delivered;
 
@@ -133,44 +168,6 @@ contract Marketplace is Ownable {
         emit ServiceResolved(_serviceId, msg.sender, _approve);
     }
 
-    // Providers apply for services
-    function applyForService(uint256 _serviceId, string memory _proposal) 
-        external 
-        onlyRole(Role.Provider) 
-        inState(_serviceId, ServiceState.Funded) 
-    {
-        applications[_serviceId].push(Application({
-            provider: msg.sender,
-            serviceId: _serviceId,
-            proposal: _proposal,
-            accepted: false
-        }));
-        
-        providerApplications[msg.sender].push(_serviceId);
-        emit ApplicationCreated(_serviceId, msg.sender, _proposal);
-    }
-
-    // Client accepts an application
-    function acceptApplication(uint256 _serviceId, uint256 _applicationIndex) 
-        external 
-        onlyRole(Role.Client) 
-        inState(_serviceId, ServiceState.Funded) 
-    {
-        require(services[_serviceId].client == msg.sender, "Not the service client");
-        require(_applicationIndex < applications[_serviceId].length, "Invalid application");
-        
-        Application storage application = applications[_serviceId][_applicationIndex];
-        require(!application.accepted, "Application already accepted");
-        require(roles[application.provider] == Role.Provider, "Applicant is not a provider");
-        
-        application.accepted = true;
-        services[_serviceId].provider = application.provider;
-        services[_serviceId].state = ServiceState.Assigned;
-        
-        emit ApplicationAccepted(_serviceId, application.provider);
-        emit ProviderAssigned(_serviceId, application.provider);
-    }
-
     // View functions for applications
     function getApplicationCount(uint256 _serviceId) external view returns (uint256) {
         return applications[_serviceId].length;
@@ -183,6 +180,45 @@ contract Marketplace is Ownable {
 
     function getProviderApplications(address _provider) external view returns (uint256[] memory) {
         return providerApplications[_provider];
+    }
+
+    // function to get all funded services
+    function getFundedServices() external view returns (Service[] memory) {
+        Service[] memory fundedServices = new Service[](nextServiceId);
+        uint256 count = 0;
+        
+        for (uint256 i = 0; i < nextServiceId; i++) {
+            if (services[i].state == ServiceState.Funded) {
+                fundedServices[count] = services[i];
+                count++;
+            }
+        }
+        
+        // Resize the array to remove empty elements
+        assembly {
+            mstore(fundedServices, count)
+        }
+        
+        return fundedServices;
+    }
+
+    // function to get all created services (not funded ones)
+    function getOpenServices() external view returns (Service[] memory) {
+        Service[] memory openServices = new Service[](nextServiceId);
+        uint256 count = 0;
+        
+        for (uint256 i = 0; i < nextServiceId; i++) {
+            if (services[i].state == ServiceState.Created) {
+                openServices[count] = services[i];
+                count++;
+            }
+        }
+        
+        assembly {
+            mstore(openServices, count)
+        }
+        
+        return openServices;
     }
 
     // helper functions
