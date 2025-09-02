@@ -115,19 +115,19 @@ export default function AdminDashboard({ contract, signer }) {
       <h2 className="text-xl font-bold">Admin Dashboard</h2>
 
       {/* Role Assignment Section */}
-      <div className="border p-3 rounded">
+      <div className="border border-gray-600 p-3 rounded-lg">
         <h3 className="font-bold mb-2">Assign Roles</h3>
         <input
           type="text"
           placeholder="User Address (0x...)"
           value={userAddress}
           onChange={(e) => setUserAddress(e.target.value)}
-          className="w-full p-2 mb-2 text-white"
+          className="w-full p-2 mb-2 text-white outline-none"
         />
         <select
           value={selectedRole}
           onChange={(e) => setSelectedRole(e.target.value)}
-          className="w-full p-2 mb-2 text-black"
+          className="w-full p-2 mb-2 text-white rounded bg-black/60 border border-gray-700 outline-none"
         >
           <option value="1">Client</option>
           <option value="2">Provider</option>
@@ -150,7 +150,7 @@ export default function AdminDashboard({ contract, signer }) {
       </div>
 
       {/* Dispute Resolution Section */}
-      <div className="border p-3 rounded">
+      <div className="border border-gray-600 p-3 rounded-lg">
         <h3 className="font-bold mb-2">Disputed Services</h3>
         {disputedServices.length === 0 ? (
           <p>No disputed services</p>
@@ -195,7 +195,7 @@ export default function AdminDashboard({ contract, signer }) {
       </div>
 
       {/* All Services Overview */}
-      <div className="border p-3 rounded">
+      <div className="border border-gray-600 p-3 rounded-lg">
         <h3 className="font-bold mb-2">All Services ({services.length})</h3>
         {services.length === 0 ? (
           <p>No services created yet</p>
@@ -203,7 +203,7 @@ export default function AdminDashboard({ contract, signer }) {
           services.map((service) => (
             <div
               key={service.id.toString()}
-              className="border p-2 mb-2 text-sm"
+              className="border border-gray-700 rounded p-2 mb-2 text-sm"
             >
               <p>
                 <strong>ID:</strong> {service.id.toString()} |{" "}

@@ -108,21 +108,21 @@ export default function ClientDashboard({ contract, signer }) {
       <h2 className="text-xl font-bold">Client Dashboard</h2>
 
       {/* Create Service Section */}
-      <div className="border p-3 rounded">
+      <div className="border border-gray-600 p-3 rounded-lg">
         <h3 className="font-bold mb-2">Create New Service</h3>
         <input
           type="text"
           placeholder="Service description"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          className="w-full p-2 mb-2 text-white"
+          className="w-full p-2 mb-2 text-white outline-none"
         />
         <input
           type="text"
           placeholder="Price in ETH"
           value={price}
           onChange={(e) => setPrice(e.target.value)}
-          className="w-full p-2 mb-2 text-white"
+          className="w-full p-2 mb-2 text-white outline-none"
         />
         <button
           onClick={createService}
@@ -133,7 +133,7 @@ export default function ClientDashboard({ contract, signer }) {
       </div>
 
       {/* My Services Section */}
-      <div className="border p-3 rounded">
+      <div className="border border-gray-600 p-3 rounded-lg">
         <h3 className="font-bold mb-2">My Services</h3>
         {services.filter((service) => service.client === signer.address)
           .length === 0 ? (
@@ -142,7 +142,10 @@ export default function ClientDashboard({ contract, signer }) {
           services
             .filter((service) => service.client === signer.address)
             .map((service) => (
-              <div key={service.id.toString()} className="border p-2 mb-2">
+              <div
+                key={service.id.toString()}
+                className="border border-gray-700 rounded p-2 mb-2 text-sm"
+              >
                 <p>
                   ID: {service.id.toString()} - {service.description}
                 </p>

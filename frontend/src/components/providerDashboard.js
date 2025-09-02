@@ -131,7 +131,7 @@ export default function ProviderDashboard({ contract, signer }) {
       <h2 className="text-xl font-bold">Provider Dashboard</h2>
 
       {/* Available Services Section with Application */}
-      <div className="border p-3 rounded">
+      <div className="border border-gray-600 p-3 rounded-lg">
         <h3 className="font-bold mb-2">Available Services</h3>
         {services.filter((service) => service.state === 1).length === 0 ? (
           <p>No available services</p>
@@ -161,7 +161,7 @@ export default function ProviderDashboard({ contract, signer }) {
                     onChange={(e) =>
                       handleProposalChange(service.id, e.target.value)
                     }
-                    className="w-full p-2 mb-2 text-black"
+                    className="w-full p-2 mb-2 text-white outline-none"
                   />
                   <button
                     onClick={() =>
@@ -198,7 +198,7 @@ export default function ProviderDashboard({ contract, signer }) {
       </div>
 
       {/* My Assigned Services Section */}
-      <div className="border p-3 rounded">
+      <div className="border border-gray-600 p-3 rounded-lg">
         <h3 className="font-bold mb-2">My Assigned Services</h3>
         {services.filter((service) => service.provider === signer.address)
           .length === 0 ? (
@@ -237,7 +237,7 @@ export default function ProviderDashboard({ contract, signer }) {
       </div>
 
       {/* Completed Services Section */}
-      <div className="border p-3 rounded">
+      <div className="border border-gray-600 p-3 rounded-lg">
         <h3 className="font-bold mb-2">Completed Services</h3>
         {services.filter(
           (service) =>
