@@ -1,6 +1,9 @@
 const { ethers } = require("hardhat");
 
 async function main() {
+  // assigning account roles - client, provider, admin
+  const [deployer, client, provider] = await ethers.getSigners();
+  
   const Marketplace = await ethers.getContractFactory("Marketplace");
 
   // deploying contract
@@ -11,12 +14,9 @@ async function main() {
 
   console.log("Marketplace deployed to:", await marketplace.getAddress());
 
-  // assigning account roles - client, provider, admin
-  const [admin, client, provider] = await ethers.getSigners();
-
-  await marketplace.setRole(client.address, 1); 
+  await marketplace.setRole(deployer.address, 3);
+  await marketplace.setRole(client.address, 1);
   await marketplace.setRole(provider.address, 2);
-  await marketplace.setRole(admin.address, 3);
 
   console.log("Roles assigned successfully!");
 }
