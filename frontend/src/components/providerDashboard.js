@@ -6,53 +6,24 @@ export default function ProviderDashboard({ contract, signer }) {
   const [services, setServices] = useState([]);
   const [myApplications, setMyApplications] = useState([]);
   const [proposalTexts, setProposalTexts] = useState({});
-  const [loading, setLoading] = useState(false);
-  const [debugInfo, setDebugInfo] = useState("");
+  const [myAssignedServices, setMyAssignedServices] = useState([]);
 
   useEffect(() => {
     if (contract && signer) {
       loadServices();
       loadMyApplications();
+      loadMyAssignedServices();
     }
   }, [contract, signer]);
 
   const loadServices = async () => {
-    setLoading(true);
-    setDebugInfo("Loading services...");
     try {
-      const serviceCount = await contract.nextServiceId();
-      setDebugInfo((prev) => prev + `\nFound ${serviceCount} total services`);
-
-      const servicesArray = [];
-      let fundedCount = 0;
-
-      for (let i = 0; i < serviceCount; i++) {
-        try {
-          const service = await contract.getService(i);
-          setDebugInfo(
-            (prev) => prev + `\nService ${i}: state ${service.state}`
-          );
-
-          // Show services that are funded (state 1)
-          if (service.state === 1) {
-            fundedCount++;
-            servicesArray.push(service);
-          }
-        } catch (error) {
-          setDebugInfo(
-            (prev) => prev + `\nError loading service ${i}: ${error.message}`
-          );
-        }
-      }
-
-      setDebugInfo((prev) => prev + `\nFound ${fundedCount} funded services`);
-      setServices(servicesArray);
+      // Get open services (state 0 - Created)
+      const openServices = await contract.getOpenServices();
+      setServices(openServices);
     } catch (err) {
       console.error("Error loading services:", err);
-      setDebugInfo((prev) => prev + `\nError: ${err.message}`);
       toast.error("Failed to load services");
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -60,40 +31,9 @@ export default function ProviderDashboard({ contract, signer }) {
     if (!signer) return;
 
     try {
-      setDebugInfo(
-        (prev) => prev + `\nLoading applications for ${signer.address}`
+      const applicationIds = await contract.getProviderApplications(
+        signer.address
       );
-
-      // Try to load applications using the function if it exists
-      let applicationIds = [];
-      try {
-        if (typeof contract.getProviderApplications === "function") {
-          applicationIds = await contract.getProviderApplications(
-            signer.address
-          );
-          setDebugInfo(
-            (prev) =>
-              prev +
-              `\nFound ${applicationIds.length} application IDs via function`
-          );
-        } else {
-          setDebugInfo(
-            (prev) => prev + `\ngetProviderApplications function not available`
-          );
-          // Fallback: manually search through all services for applications
-          await manualApplicationSearch();
-          return;
-        }
-      } catch (error) {
-        setDebugInfo(
-          (prev) =>
-            prev + `\nError calling getProviderApplications: ${error.message}`
-        );
-        // Fallback if function call fails
-        await manualApplicationSearch();
-        return;
-      }
-
       const applications = [];
 
       for (const serviceId of applicationIds) {
@@ -101,11 +41,6 @@ export default function ProviderDashboard({ contract, signer }) {
           const service = await contract.getService(serviceId);
           const applicationCount = await contract.getApplicationCount(
             serviceId
-          );
-          setDebugInfo(
-            (prev) =>
-              prev +
-              `\nService ${serviceId} has ${applicationCount} applications`
           );
 
           for (let i = 0; i < applicationCount; i++) {
@@ -120,74 +55,36 @@ export default function ProviderDashboard({ contract, signer }) {
             }
           }
         } catch (error) {
-          setDebugInfo(
-            (prev) =>
-              prev +
-              `\nError loading application for service ${serviceId}: ${error.message}`
+          console.error(
+            `Error loading application for service ${serviceId}:`,
+            error
           );
         }
       }
 
       setMyApplications(applications);
-      setDebugInfo(
-        (prev) => prev + `\nFound ${applications.length} applications`
-      );
     } catch (err) {
       console.error("Error loading applications:", err);
-      setDebugInfo(
-        (prev) => prev + `\nError loading applications: ${err.message}`
-      );
     }
   };
 
-  // Manual search for applications as fallback
-  const manualApplicationSearch = async () => {
-    setDebugInfo((prev) => prev + `\nStarting manual application search`);
+  const loadMyAssignedServices = async () => {
+    if (!signer) return;
 
-    const applications = [];
     try {
       const serviceCount = await contract.nextServiceId();
+      const assignedServices = [];
 
-      for (let serviceId = 0; serviceId < serviceCount; serviceId++) {
-        try {
-          const applicationCount = await contract.getApplicationCount(
-            serviceId
-          );
-
-          for (let i = 0; i < applicationCount; i++) {
-            try {
-              const application = await contract.getApplication(serviceId, i);
-              if (application.provider === signer.address) {
-                const service = await contract.getService(serviceId);
-                applications.push({
-                  serviceId: serviceId,
-                  proposal: application.proposal,
-                  accepted: application.accepted,
-                  service: service,
-                });
-              }
-            } catch (error) {
-              setDebugInfo(
-                (prev) =>
-                  prev +
-                  `\nError loading application ${i} for service ${serviceId}: ${error.message}`
-              );
-            }
-          }
-        } catch (error) {
-          // Service might not have applications or other error
+      for (let i = 0; i < serviceCount; i++) {
+        const service = await contract.getService(i);
+        if (service.provider === signer.address && service.state !== 0) {
+          assignedServices.push(service);
         }
       }
 
-      setMyApplications(applications);
-      setDebugInfo(
-        (prev) => prev + `\nManually found ${applications.length} applications`
-      );
-    } catch (error) {
-      setDebugInfo(
-        (prev) =>
-          prev + `\nError in manual application search: ${error.message}`
-      );
+      setMyAssignedServices(assignedServices);
+    } catch (err) {
+      console.error("Error loading assigned services:", err);
     }
   };
 
@@ -198,7 +95,6 @@ export default function ProviderDashboard({ contract, signer }) {
     }
 
     try {
-      setDebugInfo((prev) => prev + `\nApplying for service ${serviceId}`);
       const tx = await contract.applyForService(serviceId, proposal);
       await tx.wait();
       toast.success("Application submitted!");
@@ -211,7 +107,6 @@ export default function ProviderDashboard({ contract, signer }) {
       loadMyApplications();
     } catch (err) {
       console.error("Error applying for service:", err);
-      setDebugInfo((prev) => prev + `\nApplication error: ${err.message}`);
       if (err.message.includes("Unauthorized role")) {
         toast.error("Only providers can apply for services");
       } else if (err.message.includes("Invalid state")) {
@@ -227,8 +122,7 @@ export default function ProviderDashboard({ contract, signer }) {
       const tx = await contract.deliverService(serviceId);
       await tx.wait();
       toast.success("Service delivered!");
-      loadServices();
-      loadMyApplications();
+      loadMyAssignedServices();
     } catch (err) {
       console.error("Error delivering service:", err);
       toast.error(err.message);
@@ -249,54 +143,18 @@ export default function ProviderDashboard({ contract, signer }) {
       "Disputed",
       "Resolved",
     ];
-    return states[state] || "Unknown";
+    return states[Number(state)] || "Unknown";
   };
-
-  if (loading) {
-    return (
-      <div className="bg-gray-800 p-4 rounded shadow-md">
-        <h2 className="text-xl font-bold">Provider Dashboard</h2>
-        <p>Loading services...</p>
-      </div>
-    );
-  }
 
   return (
     <div className="bg-gray-800 p-4 rounded shadow-md space-y-4">
       <h2 className="text-xl font-bold">Provider Dashboard</h2>
 
-      {/* Debug Information */}
-      <div className="border border-yellow-600 p-3 rounded-lg bg-yellow-900">
-        <h3 className="font-bold mb-2 text-yellow-300">Debug Information</h3>
-        <pre className="text-xs whitespace-pre-wrap">
-          {debugInfo || "No debug information yet"}
-        </pre>
-        <button
-          onClick={() => {
-            loadServices();
-            loadMyApplications();
-          }}
-          className="mt-2 bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-1 px-2 rounded"
-        >
-          Refresh Data
-        </button>
-      </div>
-
       {/* Available Services Section */}
       <div className="border border-gray-600 p-3 rounded-lg">
-        <h3 className="font-bold mb-2">Available Services (Funded)</h3>
+        <h3 className="font-bold mb-2">Available Services (Created)</h3>
         {services.length === 0 ? (
-          <div>
-            <p>
-              No available services. Services need to be created and funded by
-              clients.
-            </p>
-            <p className="text-sm text-gray-400 mt-2">
-              Current services are in state 0 (Created) but need to be in state
-              1 (Funded). Ask a client to fund their services using the Client
-              Dashboard.
-            </p>
-          </div>
+          <p>No available services. Services need to be created by clients.</p>
         ) : (
           services.map((service) => (
             <div key={service.id.toString()} className="border p-2 mb-2">
@@ -366,39 +224,35 @@ export default function ProviderDashboard({ contract, signer }) {
       {/* My Assigned Services Section */}
       <div className="border border-gray-600 p-3 rounded-lg">
         <h3 className="font-bold mb-2">My Assigned Services</h3>
-        {services.filter((service) => service.provider === signer?.address)
-          .length === 0 ? (
+        {myAssignedServices.length === 0 ? (
           <p>No assigned services</p>
         ) : (
-          services
-            .filter((service) => service.provider === signer?.address)
-            .map((service) => (
-              <div key={service.id.toString()} className="border p-2 mb-2">
-                <p>
-                  <strong>ID:</strong> {service.id.toString()} -{" "}
-                  {service.description}
-                </p>
-                <p>
-                  <strong>Price:</strong> {ethers.formatEther(service.price)}{" "}
-                  ETH
-                </p>
-                <p>
-                  <strong>State:</strong> {getStateName(service.state)}
-                </p>
-                <p>
-                  <strong>Client:</strong> {service.client}
-                </p>
+          myAssignedServices.map((service) => (
+            <div key={service.id.toString()} className="border p-2 mb-2">
+              <p>
+                <strong>ID:</strong> {service.id.toString()} -{" "}
+                {service.description}
+              </p>
+              <p>
+                <strong>Price:</strong> {ethers.formatEther(service.price)} ETH
+              </p>
+              <p>
+                <strong>State:</strong> {getStateName(service.state)}
+              </p>
+              <p>
+                <strong>Client:</strong> {service.client}
+              </p>
 
-                {service.state === 2 && (
-                  <button
-                    onClick={() => deliverService(service.id)}
-                    className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded mt-2"
-                  >
-                    Mark as Delivered
-                  </button>
-                )}
-              </div>
-            ))
+              {service.state === 1 && ( // Funded state
+                <button
+                  onClick={() => deliverService(service.id)}
+                  className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded mt-2"
+                >
+                  Mark as Delivered
+                </button>
+              )}
+            </div>
+          ))
         )}
       </div>
     </div>
