@@ -250,10 +250,10 @@ export default function ClientDashboard({ contract, signer }) {
                     </p>
                     <p>
                       {service.deliveryDescription && (
-                        <p>
+                        <span>
                           <strong>Delivery Info:</strong>{" "}
                           {service.deliveryDescription}
-                        </p>
+                        </span>
                       )}
                     </p>
 

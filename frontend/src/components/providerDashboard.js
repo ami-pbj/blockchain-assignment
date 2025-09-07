@@ -270,7 +270,7 @@ export default function ProviderDashboard({ contract, signer }) {
           myAssignedServices.map((service) => (
             <div
               key={service.id.toString()}
-              className={`border border-gray-700 rounded p-2 mb-2`}
+              className={`border border-gray-700 bg-[#11111180] rounded p-2 mb-2`}
             >
               <p>
                 <strong>ID:</strong> {service.id.toString()} -{" "}
