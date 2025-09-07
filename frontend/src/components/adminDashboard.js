@@ -10,9 +10,11 @@ export default function AdminDashboard({ contract, signer }) {
   const [isAssigning, setIsAssigning] = useState(false);
 
   useEffect(() => {
-    loadDisputedServices();
-    loadAllServices();
-  }, [contract]);
+    if (contract && signer) {
+      loadDisputedServices();
+      loadAllServices();
+    }
+  }, [contract, signer]);
 
   const loadAllServices = async () => {
     try {
@@ -20,8 +22,12 @@ export default function AdminDashboard({ contract, signer }) {
       const servicesArray = [];
 
       for (let i = 0; i < serviceCount; i++) {
-        const service = await contract.getService(i);
-        servicesArray.push(service);
+        try {
+          const service = await contract.getService(i);
+          servicesArray.push(service);
+        } catch (error) {
+          console.error(`Error loading service ${i}:`, error);
+        }
       }
 
       setServices(servicesArray);
@@ -33,21 +39,37 @@ export default function AdminDashboard({ contract, signer }) {
 
   const loadDisputedServices = async () => {
     try {
-      const serviceCount = await contract.nextServiceId();
-      const disputed = [];
-
-      for (let i = 0; i < serviceCount; i++) {
-        const service = await contract.getService(i);
-        if (service.state === 5) {
-          // Disputed state
-          disputed.push(service);
-        }
-      }
-
+      // Use the new getDisputedServices function from the contract
+      const disputed = await contract.getDisputedServices();
       setDisputedServices(disputed);
     } catch (err) {
-      console.error("Error loading disputed services:", err);
-      toast.error("Failed to load disputed services");
+      console.error(
+        "Error loading disputed services using getDisputedServices:",
+        err
+      );
+
+      // Fallback to manual loading if the new function doesn't exist yet
+      try {
+        const serviceCount = await contract.nextServiceId();
+        const disputed = [];
+
+        for (let i = 0; i < serviceCount; i++) {
+          try {
+            const service = await contract.getService(i);
+            if (service.state === 5) {
+              // Disputed state
+              disputed.push(service);
+            }
+          } catch (error) {
+            console.error(`Error loading service ${i}:`, error);
+          }
+        }
+
+        setDisputedServices(disputed);
+      } catch (fallbackErr) {
+        console.error("Fallback loading also failed:", fallbackErr);
+        toast.error("Failed to load disputed services");
+      }
     }
   };
 
@@ -149,20 +171,20 @@ export default function AdminDashboard({ contract, signer }) {
 
       {/* Dispute Resolution Section */}
       <div className="border border-gray-600 p-3 rounded-lg">
-        <h3 className="font-bold mb-2">Disputed Services</h3>
+        <h3 className="font-bold mb-2">
+          Disputed Services ({disputedServices.length})
+        </h3>
         {disputedServices.length === 0 ? (
           <p>No disputed services</p>
         ) : (
           disputedServices.map((service) => (
-            <div key={service.id.toString()} className="border p-2 mb-2">
+            <div
+              key={service.id.toString()}
+              className="border border-gray-700 rounded p-2 mb-2"
+            >
               <p>
-                <strong>Service ID:</strong> {service.id.toString()}
-              </p>
-              <p>
-                <strong>Description:</strong> {service.description}
-              </p>
-              <p>
-                <strong>Price:</strong> {ethers.formatEther(service.price)} ETH
+                <strong>ID:</strong> {service.id.toString()} -{" "}
+                {service.description}
               </p>
               <p>
                 <strong>Client:</strong> {service.client}
@@ -171,8 +193,16 @@ export default function AdminDashboard({ contract, signer }) {
                 <strong>Provider:</strong> {service.provider}
               </p>
               <p>
+                <strong>Price:</strong> {ethers.formatEther(service.price)} ETH
+              </p>
+              <p>
+                <strong>Delivery Description:</strong>{" "}
+                {service.deliveryDescription || "Not provided"}
+              </p>
+              <p>
                 <strong>State:</strong> {getStateName(service.state)}
               </p>
+
               <div className="flex space-x-2 mt-2">
                 <button
                   onClick={() => resolveDispute(service.id, true)}
@@ -222,6 +252,11 @@ export default function AdminDashboard({ contract, signer }) {
                   ? service.provider
                   : "Not assigned"}
               </p>
+              {service.deliveryDescription && (
+                <p>
+                  <strong>Delivery Info:</strong> {service.deliveryDescription}
+                </p>
+              )}
             </div>
           ))
         )}
