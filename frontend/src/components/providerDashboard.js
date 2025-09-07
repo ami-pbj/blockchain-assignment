@@ -133,11 +133,18 @@ export default function ProviderDashboard({ contract, signer }) {
     try {
       const tx = await contract.deliverService(serviceId);
       await tx.wait();
-      toast.success("Service delivered!");
+      toast.success("Service delivered! Client can now review your work.");
       loadMyAssignedServices();
+      loadServices(); // Reload to update state everywhere
     } catch (err) {
       console.error("Error delivering service:", err);
-      toast.error(err.message);
+      if (err.message.includes("Invalid state")) {
+        toast.error("Service is not in the correct state for delivery");
+      } else if (err.message.includes("Not assigned")) {
+        toast.error("You are not assigned to this service");
+      } else {
+        toast.error(err.message);
+      }
     }
   };
 
@@ -284,7 +291,7 @@ export default function ProviderDashboard({ contract, signer }) {
                 <strong>Client:</strong> {service.client}
               </p>
 
-              {service.state === 2 && (
+              {Number(service.state) === 2 && (
                 <button
                   onClick={() => deliverService(service.id)}
                   className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded mt-2"

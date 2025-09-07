@@ -134,6 +134,29 @@ export default function ClientDashboard({ contract, signer }) {
     }
   };
 
+  const disputeService = async (serviceId) => {
+    try {
+      setCurrentAction("disputing");
+
+      const tx = await contract.disputeService(serviceId);
+      await tx.wait();
+
+      toast.success("Service disputed! Admin will review the case.");
+      loadServices();
+    } catch (err) {
+      console.error("Error disputing service:", err);
+      if (err.message.includes("Invalid state")) {
+        toast.error("Service is not in the correct state for dispute");
+      } else if (err.message.includes("Not the service client")) {
+        toast.error("You are not the owner of this service");
+      } else {
+        toast.error(err.reason || err.message || "Failed to dispute service");
+      }
+    } finally {
+      setCurrentAction("");
+    }
+  };
+
   const getStateName = (state) => {
     const states = [
       "Created",
@@ -225,7 +248,6 @@ export default function ClientDashboard({ contract, signer }) {
                         <span className="text-yellow-500">Pending</span>
                       )}
                     </p>
-
                     {/* DEBUG: Show raw data */}
                     <div className="text-xs text-gray-400 mt-2">
                       <p>
@@ -234,13 +256,13 @@ export default function ClientDashboard({ contract, signer }) {
                       </p>
                     </div>
 
-                    {/* SIMPLIFIED: Always show all buttons for testing */}
+                    {/* Action Buttons */}
                     <div className="flex flex-col space-y-2 mt-3">
-                      {/* Accept Button */}
-                      {Number(service.state) === 0 && (
+                      {/* Accept Button - Only for State 0 (Created) */}
+                      {Number(service.state) === 0 && !app.accepted && (
                         <button
                           onClick={() => acceptApplication(service.id, index)}
-                          disabled={currentAction === "accepting"}
+                          disabled={currentAction !== ""}
                           className="bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-2 rounded disabled:bg-gray-400"
                         >
                           {currentAction === "accepting"
@@ -249,11 +271,11 @@ export default function ClientDashboard({ contract, signer }) {
                         </button>
                       )}
 
-                      {/* Fund Button */}
-                      {Number(service.state) === 1 && (
+                      {/* Fund Button - Only for State 1 (Assigned) */}
+                      {Number(service.state) === 1 && app.accepted && (
                         <button
                           onClick={() => fundService(service.id, service.price)}
-                          disabled={currentAction === "funding"}
+                          disabled={currentAction !== ""}
                           className="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-1 px-2 rounded disabled:bg-gray-400"
                         >
                           {currentAction === "funding"
@@ -264,17 +286,59 @@ export default function ClientDashboard({ contract, signer }) {
                         </button>
                       )}
 
-                      {/* Approve Button */}
+                      {/* Waiting for Delivery - State 2 (Funded) */}
                       {Number(service.state) === 2 && (
-                        <button
-                          onClick={() => approveService(service.id)}
-                          disabled={currentAction === "approving"}
-                          className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded disabled:bg-gray-400"
-                        >
-                          {currentAction === "approving"
-                            ? "Approving..."
-                            : "Approve Service"}
-                        </button>
+                        <div className="bg-blue-500 text-white p-2 rounded">
+                          <p>⏳ Waiting for provider to deliver the work...</p>
+                          <p className="text-xs">
+                            Provider: {service.provider}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Approve/Dispute Buttons - Only for State 3 (Delivered) */}
+                      {Number(service.state) === 3 && (
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => approveService(service.id)}
+                            disabled={currentAction !== ""}
+                            className="bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-2 rounded disabled:bg-gray-400"
+                          >
+                            {currentAction === "approving"
+                              ? "Approving..."
+                              : "✅ Approve Service"}
+                          </button>
+                          <button
+                            onClick={() => disputeService(service.id)}
+                            disabled={currentAction !== ""}
+                            className="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded disabled:bg-gray-400"
+                          >
+                            {currentAction === "disputing"
+                              ? "Disputing..."
+                              : "⚠️ Dispute Service"}
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Completed/Resolved States */}
+                      {Number(service.state) === 4 && (
+                        <div className="bg-[#000000] text-green-500 p-2 rounded">
+                          <p>Service completed and paid successfully</p>
+                        </div>
+                      )}
+
+                      {Number(service.state) === 5 && (
+                        <div className="bg-[#000000] text-red-500 p-2 rounded">
+                          <p>
+                            Service disputed - Waiting for admin resolution
+                          </p>
+                        </div>
+                      )}
+
+                      {Number(service.state) === 6 && (
+                        <div className="bg-gray-500 text-white p-2 rounded">
+                          <p>Service resolved by admin</p>
+                        </div>
                       )}
                     </div>
                   </div>
