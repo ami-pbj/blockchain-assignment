@@ -6,6 +6,7 @@ export default function ProviderDashboard({ contract, signer }) {
   const [services, setServices] = useState([]);
   const [myApplications, setMyApplications] = useState([]);
   const [proposalTexts, setProposalTexts] = useState({});
+  const [proposalPrices, setProposalPrices] = useState({});
   const [myAssignedServices, setMyAssignedServices] = useState([]);
 
   useEffect(() => {
@@ -49,6 +50,7 @@ export default function ProviderDashboard({ contract, signer }) {
               applications.push({
                 serviceId: serviceId,
                 proposal: application.proposal,
+                price: application.price,
                 accepted: application.accepted,
                 service: service,
               });
@@ -88,19 +90,29 @@ export default function ProviderDashboard({ contract, signer }) {
     }
   };
 
-  const applyForService = async (serviceId, proposal) => {
+  const applyForService = async (serviceId, proposal, price) => {
     if (!proposal.trim()) {
       toast.error("Please enter a proposal");
       return;
     }
 
+    if (!price || parseFloat(price) <= 0) {
+      toast.error("Please enter a valid price");
+      return;
+    }
+
     try {
-      const tx = await contract.applyForService(serviceId, proposal);
+      const tx = await contract.applyForService(
+        serviceId,
+        proposal,
+        ethers.parseEther(price)
+      );
       await tx.wait();
       toast.success("Application submitted!");
 
-      // Clear the proposal text for this service
+      // Clear the proposal text and price for this service
       setProposalTexts((prev) => ({ ...prev, [serviceId]: "" }));
+      setProposalPrices((prev) => ({ ...prev, [serviceId]: "" }));
 
       // Reload data
       loadServices();
@@ -133,15 +145,19 @@ export default function ProviderDashboard({ contract, signer }) {
     setProposalTexts((prev) => ({ ...prev, [serviceId]: text }));
   };
 
+  const handlePriceChange = (serviceId, price) => {
+    setProposalPrices((prev) => ({ ...prev, [serviceId]: price }));
+  };
+
   const getStateName = (state) => {
     const states = [
-      "Created",
-      "Funded",
-      "Assigned",
-      "Delivered",
-      "Approved",
-      "Disputed",
-      "Resolved",
+      "Created", // 0
+      "Assigned", // 1
+      "Funded", // 2
+      "Delivered", // 3
+      "Approved", // 4
+      "Disputed", // 5
+      "Resolved", // 6
     ];
     return states[Number(state)] || "Unknown";
   };
@@ -166,9 +182,6 @@ export default function ProviderDashboard({ contract, signer }) {
                 {service.description}
               </p>
               <p>
-                <strong>Price:</strong> {ethers.formatEther(service.price)} ETH
-              </p>
-              <p>
                 <strong>Client:</strong> {service.client}
               </p>
 
@@ -183,9 +196,24 @@ export default function ProviderDashboard({ contract, signer }) {
                   className="w-full p-2 mb-2 text-white bg-gray-700 rounded outline-none"
                   rows="3"
                 />
+                <input
+                  type="number"
+                  placeholder="Your proposed price in ETH"
+                  value={proposalPrices[service.id] || ""}
+                  onChange={(e) =>
+                    handlePriceChange(service.id, e.target.value)
+                  }
+                  className="w-full p-2 mb-2 text-white bg-gray-700 rounded outline-none"
+                  step="0.001"
+                  min="0"
+                />
                 <button
                   onClick={() =>
-                    applyForService(service.id, proposalTexts[service.id] || "")
+                    applyForService(
+                      service.id,
+                      proposalTexts[service.id] || "",
+                      proposalPrices[service.id] || ""
+                    )
                   }
                   className="bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-2 rounded"
                 >
@@ -214,6 +242,10 @@ export default function ProviderDashboard({ contract, signer }) {
               </p>
               <p>
                 <strong>Proposal:</strong> {app.proposal}
+              </p>
+              <p>
+                <strong>Proposed Price:</strong> {ethers.formatEther(app.price)}{" "}
+                ETH
               </p>
               <p>
                 <strong>Status:</strong> {app.accepted ? "Accepted" : "Pending"}
@@ -252,7 +284,7 @@ export default function ProviderDashboard({ contract, signer }) {
                 <strong>Client:</strong> {service.client}
               </p>
 
-              {service.state === 1 && (
+              {service.state === 2 && (
                 <button
                   onClick={() => deliverService(service.id)}
                   className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded mt-2"

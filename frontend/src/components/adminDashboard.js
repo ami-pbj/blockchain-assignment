@@ -39,6 +39,7 @@ export default function AdminDashboard({ contract, signer }) {
       for (let i = 0; i < serviceCount; i++) {
         const service = await contract.getService(i);
         if (service.state === 5) {
+          // Disputed state
           disputed.push(service);
         }
       }
@@ -67,11 +68,8 @@ export default function AdminDashboard({ contract, signer }) {
       await tx.wait();
       toast.success("Role assigned successfully!");
       setUserAddress("");
-      loadAllServices();
-      loadDisputedServices();
     } catch (err) {
       console.error("Error assigning role:", err);
-
       if (err.data && err.data.includes("0x118cdaa7")) {
         toast.error("Only the contract owner can assign roles");
       } else if (err.message.includes("Unauthorized")) {
@@ -100,8 +98,8 @@ export default function AdminDashboard({ contract, signer }) {
   const getStateName = (state) => {
     const states = [
       "Created", // 0
-      "Funded", // 1
-      "Assigned", // 2
+      "Assigned", // 1
+      "Funded", // 2
       "Delivered", // 3
       "Approved", // 4
       "Disputed", // 5
@@ -219,7 +217,10 @@ export default function AdminDashboard({ contract, signer }) {
                 <strong>Client:</strong> {service.client}
               </p>
               <p>
-                <strong>Provider:</strong> {service.provider || "Not assigned"}
+                <strong>Provider:</strong>{" "}
+                {service.provider !== ethers.ZeroAddress
+                  ? service.provider
+                  : "Not assigned"}
               </p>
             </div>
           ))

@@ -12,40 +12,37 @@ describe("Marketplace", function () {
     marketplace = await Marketplace.deploy();
     await marketplace.waitForDeployment();
 
-    // assigning the roles like client, provider and admin
-    await marketplace.setRole(client.address, 1);
-    await marketplace.setRole(provider.address, 2);
-    await marketplace.setRole(admin.address, 3);
+    // assigning roles
+    await marketplace.setRole(client.address, 1); // Client
+    await marketplace.setRole(provider.address, 2); // Provider
+    await marketplace.setRole(admin.address, 3); // Admin
   });
 
   it("should follow the correct flow: create → apply → accept → fund → deliver → approve", async function () {
     // 1. Client posts service request
-    await marketplace
-      .connect(client)
-      .createService("Logo Design", parseEther("1"));
+    await marketplace.connect(client).createService("Logo Design");
 
-    // 2. Provider applies
+    // 2. Provider applies with proposal + price
     await marketplace
       .connect(provider)
-      .applyForService(0, "I can design your logo");
+      .applyForService(0, "I can design your logo", parseEther("1"));
 
-    // 3. Client selects provider
+    // 3. Client accepts provider
     await marketplace.connect(client).acceptApplication(0, 0);
 
-    // Check state is Assigned (not Funded yet)
     let service = await marketplace.getService(0);
-    expect(service.state).to.equal(2); // Assigned state
+    expect(service.state).to.equal(1); // Assigned
+    expect(service.price).to.equal(parseEther("1"));
 
     // 4. Client deposits ETH
     await expect(
       marketplace.connect(client).fundService(0, { value: parseEther("1") })
     ).to.emit(marketplace, "ServiceFunded");
 
-    // Check state is Funded
     service = await marketplace.getService(0);
-    expect(service.state).to.equal(1); // Funded state
+    expect(service.state).to.equal(2); // Funded
 
-    // 5. Provider delivers work
+    // 5. Provider delivers
     await expect(marketplace.connect(provider).deliverService(0)).to.emit(
       marketplace,
       "ServiceDelivered"
@@ -57,8 +54,7 @@ describe("Marketplace", function () {
       "ServiceApproved"
     );
 
-    // Check final state is Approved and funds transferred
     service = await marketplace.getService(0);
-    expect(service.state).to.equal(4);
+    expect(service.state).to.equal(4); // Approved
   });
 });

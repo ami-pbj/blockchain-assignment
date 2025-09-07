@@ -4,7 +4,6 @@ import { toast } from "react-toastify";
 
 export default function ClientDashboard({ contract, signer }) {
   const [description, setDescription] = useState("");
-  const [price, setPrice] = useState("");
   const [services, setServices] = useState([]);
   const [applications, setApplications] = useState({});
   const [loadingApplications, setLoadingApplications] = useState({});
@@ -24,7 +23,7 @@ export default function ClientDashboard({ contract, signer }) {
         const service = await contract.getService(i);
         servicesArray.push(service);
 
-        // Load applications for each service that belongs to this client and is in Created state (state 0)
+        // Load applications for each service that belongs to this client and is in Created state
         if (service.state === 0 && service.client === signer.address) {
           loadApplicationsForService(i);
         }
@@ -70,20 +69,16 @@ export default function ClientDashboard({ contract, signer }) {
   };
 
   const createService = async () => {
-    if (!description.trim() || !price.trim()) {
-      toast.error("Please enter description and price");
+    if (!description.trim()) {
+      toast.error("Please enter a description");
       return;
     }
 
     try {
-      const tx = await contract.createService(
-        description,
-        ethers.parseEther(price)
-      );
+      const tx = await contract.createService(description);
       await tx.wait();
       toast.success("Service created!");
       setDescription("");
-      setPrice("");
       loadServices();
     } catch (err) {
       console.error("Error creating service:", err);
@@ -96,7 +91,7 @@ export default function ClientDashboard({ contract, signer }) {
       const tx = await contract.acceptApplication(serviceId, applicationIndex);
       await tx.wait();
       toast.success("Application accepted!");
-      loadServices(); // Reload to see state change
+      loadServices();
     } catch (err) {
       console.error("Error accepting application:", err);
       toast.error(err.reason || err.message);
@@ -144,8 +139,8 @@ export default function ClientDashboard({ contract, signer }) {
   const getStateName = (state) => {
     const states = [
       "Created", // 0
-      "Funded", // 1
-      "Assigned", // 2
+      "Assigned", // 1
+      "Funded", // 2
       "Delivered", // 3
       "Approved", // 4
       "Disputed", // 5
@@ -166,13 +161,6 @@ export default function ClientDashboard({ contract, signer }) {
           placeholder="Service description"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          className="w-full p-2 mb-2 bg-gray-700 text-white rounded outline-none"
-        />
-        <input
-          type="text"
-          placeholder="Price in ETH"
-          value={price}
-          onChange={(e) => setPrice(e.target.value)}
           className="w-full p-2 mb-2 bg-gray-700 text-white rounded outline-none"
         />
         <button
@@ -210,7 +198,9 @@ export default function ClientDashboard({ contract, signer }) {
                 </p>
                 <p>
                   <strong>Provider:</strong>{" "}
-                  {service.provider || "Not assigned"}
+                  {service.provider !== ethers.ZeroAddress
+                    ? service.provider
+                    : "Not assigned"}
                 </p>
 
                 {/* Applications for Created services (state 0) */}
@@ -228,6 +218,10 @@ export default function ClientDashboard({ contract, signer }) {
                           <p>
                             <strong>Proposal:</strong> {app.proposal}
                           </p>
+                          <p>
+                            <strong>Proposed Price:</strong>{" "}
+                            {ethers.formatEther(app.price)} ETH
+                          </p>
                           <button
                             onClick={() => acceptApplication(service.id, index)}
                             className="bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-2 rounded mt-1"
@@ -243,8 +237,8 @@ export default function ClientDashboard({ contract, signer }) {
                   </div>
                 )}
 
-                {/* Fund button for Assigned services (state 2) */}
-                {service.state === 2 && (
+                {/* Fund button for Assigned services (state 1) */}
+                {service.state === 1 && (
                   <button
                     onClick={() => fundService(service.id, service.price)}
                     className="bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-2 rounded mt-2"
