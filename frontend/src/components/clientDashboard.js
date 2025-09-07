@@ -7,8 +7,7 @@ export default function ClientDashboard({ contract, signer }) {
   const [services, setServices] = useState([]);
   const [applications, setApplications] = useState({});
   const [loading, setLoading] = useState(true);
-  const [accepting, setAccepting] = useState(false);
-  const [funding, setFunding] = useState(false);
+  const [currentAction, setCurrentAction] = useState("");
 
   useEffect(() => {
     if (contract && signer) {
@@ -27,7 +26,6 @@ export default function ClientDashboard({ contract, signer }) {
           const service = await contract.getService(i);
           servicesArray.push(service);
 
-          // Load applications for services that belong to this client
           if (service.client === signer.address) {
             await loadApplicationsForService(i);
           }
@@ -85,37 +83,24 @@ export default function ClientDashboard({ contract, signer }) {
 
   const acceptApplication = async (serviceId, applicationIndex) => {
     try {
-      setAccepting(true);
+      setCurrentAction("accepting");
 
       const tx = await contract.acceptApplication(serviceId, applicationIndex);
       await tx.wait();
 
       toast.success("Application accepted! Provider assigned.");
-      await loadServices();
+      loadServices();
     } catch (err) {
       console.error("Error accepting application:", err);
-
-      if (err.message.includes("Not the service client")) {
-        toast.error("You are not the owner of this service");
-      } else if (err.message.includes("Application already accepted")) {
-        toast.error("This application is already accepted");
-      } else if (err.message.includes("Invalid state")) {
-        toast.error("Service is not in the correct state");
-      } else if (err.message.includes("Invalid application")) {
-        toast.error("Invalid application index");
-      } else {
-        toast.error(
-          err.reason || err.message || "Failed to accept application"
-        );
-      }
+      toast.error(err.reason || err.message || "Failed to accept application");
     } finally {
-      setAccepting(false);
+      setCurrentAction("");
     }
   };
 
   const fundService = async (serviceId, servicePrice) => {
     try {
-      setFunding(true);
+      setCurrentAction("funding");
 
       const tx = await contract.fundService(serviceId, {
         value: servicePrice,
@@ -126,32 +111,26 @@ export default function ClientDashboard({ contract, signer }) {
       loadServices();
     } catch (err) {
       console.error("Error funding service:", err);
-
-      if (err.message.includes("Incorrect ETH amount")) {
-        toast.error(
-          `Please send exactly ${ethers.formatEther(servicePrice)} ETH`
-        );
-      } else if (err.message.includes("Not the service client")) {
-        toast.error("You are not the owner of this service");
-      } else if (err.message.includes("Invalid state")) {
-        toast.error("Service is not in the correct state for funding");
-      } else {
-        toast.error(err.reason || err.message || "Failed to fund service");
-      }
+      toast.error(err.reason || err.message || "Failed to fund service");
     } finally {
-      setFunding(false);
+      setCurrentAction("");
     }
   };
 
   const approveService = async (serviceId) => {
     try {
+      setCurrentAction("approving");
+
       const tx = await contract.approveService(serviceId);
       await tx.wait();
+
       toast.success("Service approved! Payment released to provider.");
       loadServices();
     } catch (err) {
       console.error("Error approving service:", err);
       toast.error(err.reason || err.message);
+    } finally {
+      setCurrentAction("");
     }
   };
 
@@ -217,13 +196,17 @@ export default function ClientDashboard({ contract, signer }) {
                 {service.description}
               </p>
               <p>
-                <strong>State:</strong> {getStateName(service.state)}
+                <strong>State:</strong> {getStateName(service.state)} (State:{" "}
+                {service.state})
               </p>
 
               <div className="mt-2">
                 <h4 className="font-bold">Provider Applications:</h4>
                 {applications[service.id]?.map((app, index) => (
-                  <div key={index} className="border border-gray-700 rounded p-2 mt-2">
+                  <div
+                    key={index}
+                    className="border border-gray-700 rounded p-2 mt-2"
+                  >
                     <p>
                       <strong>Provider:</strong> {app.provider}
                     </p>
@@ -243,41 +226,57 @@ export default function ClientDashboard({ contract, signer }) {
                       )}
                     </p>
 
-                    {/* Accept Button for Pending Applications */}
-                    {service.state === 0 && !app.accepted && (
-                      <button
-                        onClick={() => acceptApplication(service.id, index)}
-                        disabled={accepting}
-                        className="bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-2 rounded mt-1 disabled:bg-gray-400"
-                      >
-                        {accepting ? "Accepting..." : "Accept Application"}
-                      </button>
-                    )}
+                    {/* DEBUG: Show raw data */}
+                    <div className="text-xs text-gray-400 mt-2">
+                      <p>
+                        DEBUG: Service State: {service.state} | App Accepted:{" "}
+                        {app.accepted.toString()}
+                      </p>
+                    </div>
 
-                    {/* Fund Button for Accepted Applications */}
-                    {app.accepted && service.state === 1 && (
-                      <button
-                        onClick={() => fundService(service.id, service.price)}
-                        disabled={funding}
-                        className="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-1 px-2 rounded mt-1 disabled:bg-gray-400"
-                      >
-                        {funding
-                          ? "Funding..."
-                          : `Fund Service (${ethers.formatEther(
-                              service.price
-                            )} ETH)`}
-                      </button>
-                    )}
+                    {/* SIMPLIFIED: Always show all buttons for testing */}
+                    <div className="flex flex-col space-y-2 mt-3">
+                      {/* Accept Button */}
+                      {Number(service.state) === 0 && (
+                        <button
+                          onClick={() => acceptApplication(service.id, index)}
+                          disabled={currentAction === "accepting"}
+                          className="bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-2 rounded disabled:bg-gray-400"
+                        >
+                          {currentAction === "accepting"
+                            ? "Accepting..."
+                            : "Accept Application"}
+                        </button>
+                      )}
 
-                    {/* Approve Button for Delivered Services */}
-                    {service.state === 3 && (
-                      <button
-                        onClick={() => approveService(service.id)}
-                        className="bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-2 rounded mt-1"
-                      >
-                        Approve & Pay Provider
-                      </button>
-                    )}
+                      {/* Fund Button */}
+                      {Number(service.state) === 1 && (
+                        <button
+                          onClick={() => fundService(service.id, service.price)}
+                          disabled={currentAction === "funding"}
+                          className="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-1 px-2 rounded disabled:bg-gray-400"
+                        >
+                          {currentAction === "funding"
+                            ? "Funding..."
+                            : `Fund Service (${ethers.formatEther(
+                                service.price
+                              )} ETH)`}
+                        </button>
+                      )}
+
+                      {/* Approve Button */}
+                      {Number(service.state) === 2 && (
+                        <button
+                          onClick={() => approveService(service.id)}
+                          disabled={currentAction === "approving"}
+                          className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded disabled:bg-gray-400"
+                        >
+                          {currentAction === "approving"
+                            ? "Approving..."
+                            : "Approve Service"}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -308,7 +307,8 @@ export default function ClientDashboard({ contract, signer }) {
                 <strong>Price:</strong> {ethers.formatEther(service.price)} ETH
               </p>
               <p>
-                <strong>State:</strong> {getStateName(service.state)}
+                <strong>State:</strong> {getStateName(service.state)} (
+                {service.state})
               </p>
               <p>
                 <strong>Provider:</strong>{" "}
