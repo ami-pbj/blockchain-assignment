@@ -21,14 +21,14 @@ contract Marketplace is Ownable {
         uint256 price;
         ServiceState state;
         string description;
-        string deliveryDescription; // NEW: Added delivery description field
+        string deliveryDescription;
     }
 
     struct Application {
         address provider;
         uint256 serviceId;
         string proposal;
-        uint256 price; // provider proposes price
+        uint256 price; 
         bool accepted;
     }
 
@@ -37,14 +37,14 @@ contract Marketplace is Ownable {
     mapping(uint256 => Application[]) public applications;
     mapping(address => uint256[]) public providerApplications;
 
-    // NEW: Track disputed services for admin
+    
     uint256[] public disputedServiceIds;
 
     // events
     event ServiceCreated(uint256 indexed serviceId, address indexed client, string description);
     event ServiceFunded(uint256 indexed serviceId, uint256 amount);
     event ProviderAssigned(uint256 indexed serviceId, address indexed provider, uint256 price);
-    event ServiceDelivered(uint256 indexed serviceId, string deliveryDescription); // UPDATED: Added delivery description
+    event ServiceDelivered(uint256 indexed serviceId, string deliveryDescription);
     event ServiceApproved(uint256 indexed serviceId);
     event ServiceDisputed(uint256 indexed serviceId);
     event ServiceResolved(uint256 indexed serviceId, address resolver, bool approved);
@@ -77,7 +77,7 @@ contract Marketplace is Ownable {
             price: 0, // no price yet
             state: ServiceState.Created,
             description: _description,
-            deliveryDescription: "" // Initialize empty delivery description
+            deliveryDescription: ""
         });
 
         emit ServiceCreated(nextServiceId, msg.sender, _description);
@@ -115,7 +115,7 @@ contract Marketplace is Ownable {
         
         application.accepted = true;
         services[_serviceId].provider = application.provider;
-        services[_serviceId].price = application.price; // set price from provider
+        services[_serviceId].price = application.price; 
         services[_serviceId].state = ServiceState.Assigned;
         
         emit ApplicationAccepted(_serviceId, application.provider, application.price);
@@ -133,15 +133,16 @@ contract Marketplace is Ownable {
         emit ServiceFunded(_serviceId, msg.value);
     }
 
-    // UPDATED: Added deliveryDescription parameter
+    // Added deliveryDescription parameter
     function deliverService(uint256 _serviceId, string memory _deliveryDescription) external 
         onlyRole(Role.Provider) 
         inState(_serviceId, ServiceState.Funded)
     {
         require(services[_serviceId].provider == msg.sender, "You are not assigned to this service");
         require(bytes(_deliveryDescription).length > 0, "Delivery description required"); // VALIDATION
+        
         services[_serviceId].state = ServiceState.Delivered;
-        services[_serviceId].deliveryDescription = _deliveryDescription; // Store delivery description
+        services[_serviceId].deliveryDescription = _deliveryDescription; 
 
         emit ServiceDelivered(_serviceId, _deliveryDescription);
     }
@@ -160,7 +161,7 @@ contract Marketplace is Ownable {
         require(services[_serviceId].client == msg.sender, "You are not the client");
         services[_serviceId].state = ServiceState.Disputed;
         
-        // NEW: Add to disputed services list for admin
+        // Add to disputed services list for admin
         disputedServiceIds.push(_serviceId);
 
         emit ServiceDisputed(_serviceId);
@@ -175,7 +176,7 @@ contract Marketplace is Ownable {
             payable(services[_serviceId].client).transfer(services[_serviceId].price);
         }
 
-        // NEW: Remove from disputed services list
+        // Remove from disputed services list
         for (uint256 i = 0; i < disputedServiceIds.length; i++) {
             if (disputedServiceIds[i] == _serviceId) {
                 disputedServiceIds[i] = disputedServiceIds[disputedServiceIds.length - 1];
@@ -187,7 +188,7 @@ contract Marketplace is Ownable {
         emit ServiceResolved(_serviceId, msg.sender, _approve);
     }
 
-    // NEW: Get disputed services for admin dashboard
+    // Get disputed services for admin dashboard
     function getDisputedServices() external view returns (Service[] memory) {
         Service[] memory disputedServices = new Service[](disputedServiceIds.length);
         

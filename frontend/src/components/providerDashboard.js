@@ -261,6 +261,68 @@ export default function ProviderDashboard({ contract, signer }) {
         )}
       </div>
 
+      {/* My Assigned Services Section */}
+      <div className="border border-gray-600 p-3 rounded-lg">
+        <h3 className="font-bold mb-2">My Assigned Services</h3>
+        {myAssignedServices.length === 0 ? (
+          <p>No assigned services</p>
+        ) : (
+          myAssignedServices.map((service) => (
+            <div
+              key={service.id.toString()}
+              className={`border border-gray-700 rounded p-2 mb-2`}
+            >
+              <p>
+                <strong>ID:</strong> {service.id.toString()} -{" "}
+                {service.description}
+              </p>
+              <p>
+                <strong>Price:</strong> {ethers.formatEther(service.price)} ETH
+              </p>
+              <p className={getStateColor(service.state)}>
+                <strong>State:</strong> {getStateName(service.state)}
+              </p>
+              <p>
+                <strong>Client:</strong> {service.client}
+              </p>
+              {service.deliveryDescription && (
+                <p>
+                  <strong>Delivery Info:</strong> {service.deliveryDescription}
+                </p>
+              )}
+
+              {Number(service.state) === 2 && (
+                <div className="mt-2">
+                  <textarea
+                    placeholder="Add delivery description or link to your work..."
+                    value={deliveryDescriptions[service.id] || ""}
+                    onChange={(e) =>
+                      handleDeliveryDescriptionChange(
+                        service.id,
+                        e.target.value
+                      )
+                    }
+                    className="w-full p-2 mb-2 text-white bg-gray-700 rounded outline-none"
+                    rows="3"
+                  />
+                  <button
+                    onClick={() =>
+                      deliverService(
+                        service.id,
+                        deliveryDescriptions[service.id] || ""
+                      )
+                    }
+                    className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded"
+                  >
+                    Mark as Delivered
+                  </button>
+                </div>
+              )}
+            </div>
+          ))
+        )}
+      </div>
+
       {/* My Applications Section */}
       <div className="border border-gray-600 p-3 rounded-lg">
         <h3 className="font-bold mb-2">My Applications</h3>
@@ -295,63 +357,6 @@ export default function ProviderDashboard({ contract, signer }) {
                   <span className="text-yellow-500">Pending</span>
                 )}
               </p>
-            </div>
-          ))
-        )}
-      </div>
-
-      {/* My Assigned Services Section */}
-      <div className="border border-gray-600 p-3 rounded-lg">
-        <h3 className="font-bold mb-2">My Assigned Services</h3>
-        {myAssignedServices.length === 0 ? (
-          <p>No assigned services</p>
-        ) : (
-          myAssignedServices.map((service) => (
-            <div
-              key={service.id.toString()}
-              className={`border border-gray-700 rounded p-2 mb-2`}
-            >
-              <p>
-                <strong>ID:</strong> {service.id.toString()} -{" "}
-                {service.description}
-              </p>
-              <p>
-                <strong>Price:</strong> {ethers.formatEther(service.price)} ETH
-              </p>
-              <p className={getStateColor(service.state)}>
-                <strong>State:</strong> {getStateName(service.state)}
-              </p>
-              <p>
-                <strong>Client:</strong> {service.client}
-              </p>
-
-              {Number(service.state) === 2 && (
-                <div className="mt-2">
-                  <textarea
-                    placeholder="Add delivery description or link to your work..."
-                    value={deliveryDescriptions[service.id] || ""}
-                    onChange={(e) =>
-                      handleDeliveryDescriptionChange(
-                        service.id,
-                        e.target.value
-                      )
-                    }
-                    className="w-full p-2 mb-2 text-white bg-gray-700 rounded outline-none"
-                    rows="3"
-                  />
-                  <button
-                    onClick={() =>
-                      deliverService(
-                        service.id,
-                        deliveryDescriptions[service.id] || ""
-                      )
-                    }
-                    className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded"
-                  >
-                    Mark as Delivered
-                  </button>
-                </div>
-              )}
             </div>
           ))
         )}

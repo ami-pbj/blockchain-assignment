@@ -248,13 +248,22 @@ export default function ClientDashboard({ contract, signer }) {
                         <span className="text-yellow-500">Pending</span>
                       )}
                     </p>
-                    {/* DEBUG: Show raw data */}
-                    <div className="text-xs text-gray-400 mt-2">
+                    <p>
+                      {service.deliveryDescription && (
+                        <p>
+                          <strong>Delivery Info:</strong>{" "}
+                          {service.deliveryDescription}
+                        </p>
+                      )}
+                    </p>
+
+                    {/* DEBUGGING: Show raw data */}
+                    {/* <div className="text-xs text-gray-400 mt-2">
                       <p>
                         DEBUG: Service State: {service.state} | App Accepted:{" "}
                         {app.accepted.toString()}
                       </p>
-                    </div>
+                    </div> */}
 
                     {/* Action Buttons */}
                     <div className="flex flex-col space-y-2 mt-3">
@@ -289,7 +298,7 @@ export default function ClientDashboard({ contract, signer }) {
                       {/* Waiting for Delivery - State 2 (Funded) */}
                       {Number(service.state) === 2 && (
                         <div className="bg-blue-500 text-white p-2 rounded">
-                          <p>⏳ Waiting for provider to deliver the work...</p>
+                          <p>Waiting for provider to deliver the work...</p>
                           <p className="text-xs">
                             Provider: {service.provider}
                           </p>
@@ -329,15 +338,13 @@ export default function ClientDashboard({ contract, signer }) {
 
                       {Number(service.state) === 5 && (
                         <div className="bg-[#000000] text-red-500 p-2 rounded">
-                          <p>
-                            Service disputed - Waiting for admin resolution
-                          </p>
+                          <p>Service disputed - Waiting for admin resolution</p>
                         </div>
                       )}
 
                       {Number(service.state) === 6 && (
                         <div className="bg-gray-500 text-white p-2 rounded">
-                          <p>Service resolved by admin</p>
+                          <p>Service resolved by admin and refunded</p>
                         </div>
                       )}
                     </div>

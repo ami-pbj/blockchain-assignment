@@ -146,7 +146,7 @@ describe("Marketplace", function () {
       .connect(client)
       .fundService(0, { value: parseEther("1") });
 
-    // Try to deliver with empty description - should fail
+    // Trying to deliver with empty description - should fail
     await expect(
       marketplace.connect(provider).deliverService(0, "")
     ).to.be.revertedWith("Delivery description required");
