@@ -8,6 +8,7 @@ export default function ProviderDashboard({ contract, signer }) {
   const [proposalTexts, setProposalTexts] = useState({});
   const [proposalPrices, setProposalPrices] = useState({});
   const [myAssignedServices, setMyAssignedServices] = useState([]);
+  const [deliveryDescriptions, setDeliveryDescriptions] = useState({});
 
   useEffect(() => {
     if (contract && signer) {
@@ -129,11 +130,20 @@ export default function ProviderDashboard({ contract, signer }) {
     }
   };
 
-  const deliverService = async (serviceId) => {
+  const deliverService = async (serviceId, deliveryDescription) => {
+    if (!deliveryDescription.trim()) {
+      toast.error("Please add a delivery description or link");
+      return;
+    }
+
     try {
-      const tx = await contract.deliverService(serviceId);
+      const tx = await contract.deliverService(serviceId, deliveryDescription);
       await tx.wait();
       toast.success("Service delivered! Client can now review your work.");
+
+      // Clear the delivery description for this service
+      setDeliveryDescriptions((prev) => ({ ...prev, [serviceId]: "" }));
+
       loadMyAssignedServices();
       loadServices(); // Reload to update state everywhere
     } catch (err) {
@@ -156,6 +166,10 @@ export default function ProviderDashboard({ contract, signer }) {
     setProposalPrices((prev) => ({ ...prev, [serviceId]: price }));
   };
 
+  const handleDeliveryDescriptionChange = (serviceId, text) => {
+    setDeliveryDescriptions((prev) => ({ ...prev, [serviceId]: text }));
+  };
+
   const getStateName = (state) => {
     const states = [
       "Created", // 0
@@ -167,6 +181,18 @@ export default function ProviderDashboard({ contract, signer }) {
       "Resolved", // 6
     ];
     return states[Number(state)] || "Unknown";
+  };
+
+  const getStateColor = (state) => {
+    const stateNum = Number(state);
+    if (stateNum === 0) return "text-gray-400"; // Created
+    if (stateNum === 1) return "text-yellow-500"; // Assigned
+    if (stateNum === 2) return "text-blue-500"; // Funded
+    if (stateNum === 3) return "text-purple-500"; // Delivered
+    if (stateNum === 4) return "text-green-500"; // Approved
+    if (stateNum === 5) return "text-red-500"; // Disputed
+    if (stateNum === 6) return "text-gray-500"; // Resolved
+    return "text-gray-400";
   };
 
   return (
@@ -190,6 +216,9 @@ export default function ProviderDashboard({ contract, signer }) {
               </p>
               <p>
                 <strong>Client:</strong> {service.client}
+              </p>
+              <p className={getStateColor(service.state)}>
+                <strong>Status:</strong> {getStateName(service.state)}
               </p>
 
               {/* Application Form */}
@@ -241,7 +270,7 @@ export default function ProviderDashboard({ contract, signer }) {
           myApplications.map((app, index) => (
             <div
               key={index}
-              className="border border-gray-700 rounded p-2 mb-2"
+              className={`border border-gray-700 rounded p-2 mb-2`}
             >
               <p>
                 <strong>Service ID:</strong> {app.serviceId.toString()} -{" "}
@@ -254,12 +283,17 @@ export default function ProviderDashboard({ contract, signer }) {
                 <strong>Proposed Price:</strong> {ethers.formatEther(app.price)}{" "}
                 ETH
               </p>
-              <p>
-                <strong>Status:</strong> {app.accepted ? "Accepted" : "Pending"}
+              <p className={getStateColor(app.service.state)}>
+                <strong>Service Status:</strong>{" "}
+                {getStateName(app.service.state)}
               </p>
               <p>
-                <strong>Service State:</strong>{" "}
-                {getStateName(app.service.state)}
+                <strong>Application Status:</strong>{" "}
+                {app.accepted ? (
+                  <span className="text-green-500">Accepted ✓</span>
+                ) : (
+                  <span className="text-yellow-500">Pending</span>
+                )}
               </p>
             </div>
           ))
@@ -275,7 +309,7 @@ export default function ProviderDashboard({ contract, signer }) {
           myAssignedServices.map((service) => (
             <div
               key={service.id.toString()}
-              className="border border-gray-700 rounded p-2 mb-2"
+              className={`border border-gray-700 rounded p-2 mb-2`}
             >
               <p>
                 <strong>ID:</strong> {service.id.toString()} -{" "}
@@ -284,7 +318,7 @@ export default function ProviderDashboard({ contract, signer }) {
               <p>
                 <strong>Price:</strong> {ethers.formatEther(service.price)} ETH
               </p>
-              <p>
+              <p className={getStateColor(service.state)}>
                 <strong>State:</strong> {getStateName(service.state)}
               </p>
               <p>
@@ -292,12 +326,31 @@ export default function ProviderDashboard({ contract, signer }) {
               </p>
 
               {Number(service.state) === 2 && (
-                <button
-                  onClick={() => deliverService(service.id)}
-                  className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded mt-2"
-                >
-                  Mark as Delivered
-                </button>
+                <div className="mt-2">
+                  <textarea
+                    placeholder="Add delivery description or link to your work..."
+                    value={deliveryDescriptions[service.id] || ""}
+                    onChange={(e) =>
+                      handleDeliveryDescriptionChange(
+                        service.id,
+                        e.target.value
+                      )
+                    }
+                    className="w-full p-2 mb-2 text-white bg-gray-700 rounded outline-none"
+                    rows="3"
+                  />
+                  <button
+                    onClick={() =>
+                      deliverService(
+                        service.id,
+                        deliveryDescriptions[service.id] || ""
+                      )
+                    }
+                    className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded"
+                  >
+                    Mark as Delivered
+                  </button>
+                </div>
               )}
             </div>
           ))
