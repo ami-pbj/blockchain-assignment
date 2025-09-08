@@ -219,11 +219,11 @@ export default function ClientDashboard({ contract, signer }) {
                 {service.description}
               </p>
               <p>
-                <strong>State:</strong> {getStateName(service.state)} (State:{" "}
-                {service.state})
+                <strong>State:</strong> {getStateName(service.state)} 
+                {/* (State:{" "} {service.state}) */}
               </p>
 
-              <div className="mt-2">
+              <div className="mt-0">
                 <h4 className="font-bold">Provider Applications:</h4>
                 {applications[service.id]?.map((app, index) => (
                   <div
@@ -378,8 +378,8 @@ export default function ClientDashboard({ contract, signer }) {
                 <strong>Price:</strong> {ethers.formatEther(service.price)} ETH
               </p>
               <p>
-                <strong>State:</strong> {getStateName(service.state)} (
-                {service.state})
+                <strong>State:</strong> {getStateName(service.state)} 
+                {/* ({service.state}) */}
               </p>
               <p>
                 <strong>Provider:</strong>{" "}
