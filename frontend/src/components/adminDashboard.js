@@ -8,6 +8,22 @@ export default function AdminDashboard({ contract, signer }) {
   const [selectedRole, setSelectedRole] = useState("1");
   const [services, setServices] = useState([]);
   const [isAssigning, setIsAssigning] = useState(false);
+  const [adminAddress, setAdminAddress] = useState("");
+
+  // Fetch admin (contract owner)
+  useEffect(() => {
+    const fetchAdmin = async () => {
+      if (contract) {
+        try {
+          const _admin = await contract.owner(); // from Ownable
+          setAdminAddress(_admin.toLowerCase());
+        } catch (err) {
+          console.error("Error fetching admin:", err);
+        }
+      }
+    };
+    fetchAdmin();
+  }, [contract]);
 
   useEffect(() => {
     if (contract && signer) {
@@ -84,6 +100,11 @@ export default function AdminDashboard({ contract, signer }) {
       return;
     }
 
+    if (userAddress.toLowerCase() === adminAddress) {
+      toast.error("Cannot change the role of the Admin address");
+      return;
+    }
+
     setIsAssigning(true);
     try {
       const tx = await contract.setRole(userAddress, selectedRole);
@@ -151,7 +172,7 @@ export default function AdminDashboard({ contract, signer }) {
         >
           <option value="1">Client</option>
           <option value="2">Provider</option>
-          <option value="3">Admin</option>
+          {/* <option value="3">Admin</option> */}
         </select>
         <button
           onClick={assignRole}

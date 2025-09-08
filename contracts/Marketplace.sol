@@ -65,6 +65,9 @@ contract Marketplace is Ownable {
 
     // role management
     function setRole(address user, Role role) external onlyOwner {
+        if (user == owner()) {
+            require(roles[user] == Role.None, "Cannot change role of the contract owner");
+        }
         roles[user] = role;
     }
 
