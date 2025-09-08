@@ -194,4 +194,19 @@ describe("Marketplace", function () {
         .deliverService(0, "Updated website: https://example.com/v2")
     ).to.be.revertedWith("Invalid state for this action"); // UPDATED EXPECTED ERROR
   });
+
+  // Prevent overwriting admin role
+  it("should not allow changing the owner's (admin) role", async function () {
+    // First explicitly set deployer (owner) as admin
+    await marketplace.setRole(owner.address, 3);
+
+    // Trying to change owner to Client
+    await expect(
+      marketplace.connect(owner).setRole(owner.address, 1)
+    ).to.be.revertedWith("Cannot change role of the contract owner");
+
+    // Role should be still be Admin
+    const role = await marketplace.roles(owner.address);
+    expect(role).to.equal(3);
+  });
 });
