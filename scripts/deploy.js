@@ -1,4 +1,6 @@
 const { ethers } = require("hardhat");
+const fs = require("fs");
+const path = require("path");
 
 async function main() {
   // Get multiple accounts for testing different roles
@@ -8,7 +10,8 @@ async function main() {
   const marketplace = await Marketplace.deploy();
   await marketplace.waitForDeployment();
 
-  console.log("Marketplace deployed to:", await marketplace.getAddress());
+  const deployedAddress = await marketplace.getAddress();
+  console.log("Marketplace deployed to:", deployedAddress);
 
   // assigning roles - deployer is already owner
   await marketplace.setRole(client.address, 1);
@@ -19,6 +22,18 @@ async function main() {
   console.log("Client:", client.address);
   console.log("Provider:", provider.address);
   console.log("Admin:", deployer.address);
+
+  // Save deployed contract address to frontend
+  const addressPath = path.join(
+    __dirname,
+    "../frontend/src/contracts/MarketplaceAddress.json"
+  );
+
+  fs.writeFileSync(
+    addressPath,
+    JSON.stringify({ address: deployedAddress }, null, 2)
+  );
+  console.log("Contract address saved to frontend!");
 }
 
 main().catch((error) => {

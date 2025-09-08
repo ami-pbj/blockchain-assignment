@@ -50,7 +50,7 @@ npx hardhat run scripts/deploy.js --network localhost
 node scripts/copy-abi.js    # Copies MarketplaceABI from artifacts to frontend
 ```
 
-This deploys the Marketplace smart contract to the local Hardhat blockchain. 
+This deploys the Marketplace smart contract to the local Hardhat blockchain and automatically save the deployed contract address into the frontend.
 
 ### Step 3: Start Frontend
 
